@@ -27,7 +27,7 @@ def parse_args():
     parser.add_argument('--data_dir', type=str, default='../data')
 
     parser.add_argument('--device', default='cuda' if cuda.is_available() else 'cpu')
-    parser.add_argument('--num_workers', type=int, default=8)
+    parser.add_argument('--num_workers', type=int, default=4)
 
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--epochs', type=int, default=20)
@@ -140,12 +140,18 @@ def train(args, model):
                 print(f"Best performance at epoch (loss): {epoch + 1}")
                 print(f"Save model in {os.path.join(args.save_dir, args.experiment_name)}")
                 best_loss = avrg_loss
-                save_model(model, args.save_dir, file_name=os.path.join(args.experiment_name, f'best_loss_epoch_{epoch+1}.pt'))
+                save_model(model, args.save_dir, file_name=os.path.join(args.experiment_name, f'best_loss.pt'))
+                wandb.log({
+                    "best loss epoch" : epoch + 1
+                })
             if val_mIoU > best_mIoU:
                 print(f"Best performance at epoch (mIoU): {epoch + 1}")
                 print(f"Save model in {os.path.join(args.save_dir, args.experiment_name)}")
                 best_mIoU = val_mIoU
-                save_model(model, args.save_dir, file_name=os.path.join(args.experiment_name, f'best_mIoU_epoch_{epoch+1}.pt'))
+                save_model(model, args.save_dir, file_name=os.path.join(args.experiment_name, f'best_mIoU.pt'))
+                wandb.log({
+                    "best mIoU epoch" : epoch + 1
+                })
             
 
 def validation(epoch, model, data_loader, criterion, device):
