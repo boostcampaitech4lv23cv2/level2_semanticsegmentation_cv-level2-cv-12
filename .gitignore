@@ -16,6 +16,9 @@ __pycache__/
 checkpoint.*
 *.csv
 *.json
+*.yaml
+wandb/*
+*.txt
 
 # C extensions
 *.so
