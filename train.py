@@ -34,7 +34,7 @@ def parse_args():
     parser.add_argument('--learning_rate', '-lr', type=float, default=1e-4)
 
     parser.add_argument('--experiment_name', '-en', type=str, default='segment')
-    parser.add_argument('--seed', type=int, default=42)
+    parser.add_argument('--seed', type=int, default=21)
 
     args = parser.parse_args()
 
@@ -45,7 +45,7 @@ def save_model(model, saved_dir, file_name='segment'):
     if not os.path.isdir(saved_dir):
         os.mkdir(saved_dir)
     check_point = {'net': model.state_dict()}
-    output_path = os.path.join(saved_dir, file_name, 'best.pt')
+    output_path = os.path.join(saved_dir, file_name)
     torch.save(model, output_path)
 
 
@@ -53,6 +53,7 @@ def train(args, model):
     print(f'Start training..')
     n_class = 11
     best_loss = 9999999
+    best_mIoU = 0
 
     # --Loss function 정의
     criterion = nn.CrossEntropyLoss()
@@ -63,10 +64,12 @@ def train(args, model):
     # --Dataset 및 DataLoader 설정
     train_dataset = CustomDataLoader(data_dir=os.path.join(args.data_dir, 'train.json'),
                                      mode='train',
-                                     transform=do_transform(mode='train'))
+                                     transform=do_transform(mode='train'),
+                                     data_path=args.data_dir)
     val_dataset = CustomDataLoader(data_dir=os.path.join(args.data_dir, 'val.json'),
                                    mode='val',
-                                   transform=do_transform(mode='val'))
+                                   transform=do_transform(mode='val'),
+                                   data_path=args.data_dir)
     train_loader = torch.utils.data.DataLoader(dataset=train_dataset,
                                                 batch_size=args.batch_size,
                                                 shuffle=True,
@@ -74,7 +77,7 @@ def train(args, model):
                                                 collate_fn=collate_fn)
     val_loader = torch.utils.data.DataLoader(dataset=val_dataset,
                                              batch_size=args.batch_size,
-                                             shuffle=True,
+                                             shuffle=False,
                                              num_workers=args.num_workers,
                                              collate_fn=collate_fn)
 
@@ -132,13 +135,18 @@ def train(args, model):
         })
         # validation 주기에 따른 loss 출력 및 best model 저장
         if (epoch + 1) % args.val_every == 0:
-            avrg_loss = validation(epoch + 1, model, val_loader, criterion, args.device)
+            avrg_loss, val_mIoU = validation(epoch + 1, model, val_loader, criterion, args.device)
             if avrg_loss < best_loss:
-                print(f"Best performance at epoch: {epoch + 1}")
+                print(f"Best performance at epoch (loss): {epoch + 1}")
                 print(f"Save model in {os.path.join(args.save_dir, args.experiment_name)}")
                 best_loss = avrg_loss
-                save_model(model, args.save_dir, file_name=args.experiment_name)
-
+                save_model(model, args.save_dir, file_name=os.path.join(args.experiment_name, f'best_loss_epoch_{epoch+1}.pt'))
+            if val_mIoU > best_mIoU:
+                print(f"Best performance at epoch (mIoU): {epoch + 1}")
+                print(f"Save model in {os.path.join(args.save_dir, args.experiment_name)}")
+                best_mIoU = val_mIoU
+                save_model(model, args.save_dir, file_name=os.path.join(args.experiment_name, f'best_mIoU_epoch_{epoch+1}.pt'))
+            
 
 def validation(epoch, model, data_loader, criterion, device):
     print(f'\n Start validation #{epoch}')
@@ -175,8 +183,7 @@ def validation(epoch, model, data_loader, criterion, device):
         IoU_by_class = [{classes : round(IoU,4)} for IoU, classes in zip(IoU , category_names)]
         
         avrg_loss = total_loss / cnt
-        print(f'Validation #{epoch}  Average Loss: {round(avrg_loss.item(), 4)}, Accuracy : {round(acc, 4)}, \
-                mIoU: {round(mIoU, 4)}')
+        print(f'Validation #{epoch}  Average Loss: {round(avrg_loss.item(), 4)}, Accuracy : {round(acc, 4)}, mIoU: {round(mIoU, 4)}')
         print(f'IoU by class : {IoU_by_class}')
 
         wandb.log({
@@ -185,7 +192,7 @@ def validation(epoch, model, data_loader, criterion, device):
                 "Validation mIoU" : mIoU
             })
         
-    return avrg_loss
+    return avrg_loss, mIoU
 
 
 if __name__ == "__main__":
@@ -199,4 +206,3 @@ if __name__ == "__main__":
     wandb_init(args)
 
     train(args, model)
-
