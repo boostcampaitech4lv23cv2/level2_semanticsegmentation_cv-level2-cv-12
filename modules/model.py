@@ -2,12 +2,16 @@ from .models.Effiecient_unet import Efficient_UNet
 from .models.FCN_resnet50 import FCN_ResNet50
 from .models.Deconvnet_jj import DeconvNet_JJ
 from .models.FCN_16s import FCN16s
+from .models.Efficientb0_unet_pp import Efficientb0_UNet_PP
+from .models.Efficientb4_unet_pp import Efficientb4_UNet_PP
 
 _model_entrypoints = {
     "efficient_unet": Efficient_UNet,
     "fcn_resnet50": FCN_ResNet50,
     "deconvnet_jj": DeconvNet_JJ,
     "fcn_16s": FCN16s,
+    "efficientb0_unet_pp": Efficientb0_UNet_PP,
+    "efficientb4_unet_pp": Efficientb4_UNet_PP,
 }
 
 def model_entrypoint(model_name):
