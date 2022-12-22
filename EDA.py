@@ -1,36 +1,13 @@
-import os
-import random
-import time
 import json
 import warnings 
 warnings.filterwarnings('ignore')
 
-import torch
-import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
-from utils import label_accuracy_score, add_hist
-import cv2
-
 import numpy as np
 import pandas as pd
-from tqdm import tqdm
-
-# 전처리를 위한 라이브러리
-from pycocotools.coco import COCO
-import torchvision
-import torchvision.transforms as transforms
-
-#!pip install albumentations==0.4.6
-import albumentations as A
-from albumentations.pytorch import ToTensorV2
 
 # 시각화를 위한 라이브러리
 import matplotlib.pyplot as plt
 import seaborn as sns; sns.set()
-from matplotlib.patches import Patch
-
-#!pip install webcolors
-import webcolors
 
 dataset_path  = '../data'
 anns_file_path = dataset_path + '/' + 'train_all.json'

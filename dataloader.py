@@ -1,24 +1,14 @@
 import os
-import random
-import time
-import json
 import warnings 
 warnings.filterwarnings('ignore')
 
-import torch
-import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
-from utils import label_accuracy_score, add_hist
+from torch.utils.data import Dataset
 import cv2
 
 import numpy as np
-import pandas as pd
-from tqdm import tqdm
 
 # 전처리를 위한 라이브러리
 from pycocotools.coco import COCO
-import torchvision
-import torchvision.transforms as transforms
 
 #!pip install albumentations==0.4.6
 import albumentations as A
@@ -27,10 +17,6 @@ from albumentations.pytorch import ToTensorV2
 # 시각화를 위한 라이브러리
 import matplotlib.pyplot as plt
 import seaborn as sns; sns.set()
-from matplotlib.patches import Patch
-
-#!pip install webcolors
-import webcolors
 
 dataset_path  = '../data'
 category_names = ['Backgroud', 'General trash', 'Paper', 'Paper pack', 'Metal', 'Glass', 'Plastic', 'Styrofoam', 'Plastic bag', 'Battery', 'Clothing']
@@ -125,12 +111,3 @@ def do_transform(mode):
             ToTensorV2()
         ])
     return transform
-
-
-# create own Dataset 1 (skip)
-# validation set을 직접 나누고 싶은 경우
-# random_split 사용하여 data set을 8:2 로 분할
-# train_size = int(0.8*len(dataset))
-# val_size = int(len(dataset)-train_size)
-# dataset = CustomDataLoader(data_dir=train_path, mode='train', transform=transform)
-# train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
