@@ -122,7 +122,7 @@ def do_transform(mode):
         ])
     else:
         transform = A.Compose([
-            ToTensorV2
+            ToTensorV2()
         ])
     return transform
 
@@ -134,32 +134,3 @@ def do_transform(mode):
 # val_size = int(len(dataset)-train_size)
 # dataset = CustomDataLoader(data_dir=train_path, mode='train', transform=transform)
 # train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
-
-# create own Dataset 2
-# train dataset
-# train_dataset = CustomDataLoader(data_dir=train_path, mode='train', transform=train_transform)
-
-# # validation dataset
-# val_dataset = CustomDataLoader(data_dir=val_path, mode='val', transform=val_transform)
-
-# # test dataset
-# test_dataset = CustomDataLoader(data_dir=test_path, mode='test', transform=test_transform)
-
-
-# # DataLoader
-# train_loader = torch.utils.data.DataLoader(dataset=train_dataset, 
-#                                            batch_size=batch_size,
-#                                            shuffle=True,
-#                                            num_workers=4,
-#                                            collate_fn=collate_fn)
-
-# val_loader = torch.utils.data.DataLoader(dataset=val_dataset, 
-#                                          batch_size=batch_size,
-#                                          shuffle=False,
-#                                          num_workers=4,
-#                                          collate_fn=collate_fn)
-
-# test_loader = torch.utils.data.DataLoader(dataset=test_dataset,
-#                                           batch_size=batch_size,
-#                                           num_workers=4,
-#                                           collate_fn=collate_fn)
