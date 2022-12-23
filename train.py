@@ -10,7 +10,7 @@ from utils import label_accuracy_score, add_hist, set_seed
 from dataloader import CustomDataLoader, do_transform, collate_fn
 
 import wandb
-from set_wandb import wandb_init
+from utils.set_wandb import wandb_init
 
 import math
 import numpy as np
@@ -18,13 +18,14 @@ import numpy as np
 from tqdm import tqdm
 from argparse import ArgumentParser
 
+import pandas as pd
 
 def parse_args():
     parser = ArgumentParser()
 
     parser.add_argument('--save_dir', type=str, default='./saved')
     parser.add_argument('--val_every', type=int, default=1)
-    parser.add_argument('--data_dir', type=str, default='../data')
+    parser.add_argument('--data_dir', type=str, default='/opt/ml/input/data')
 
     parser.add_argument('--device', default='cuda' if cuda.is_available() else 'cpu')
     parser.add_argument('--num_workers', type=int, default=4)
@@ -121,7 +122,6 @@ def train(args, model):
                     'mIoU': round(mIoU, 4)
                 }
                 pbar.set_postfix(tmp_dict)
-
                 # step 주기에 따른 loss 출력
                 # if (step + 1) % 25 == 0:
                 #     print(f'Epoch [{epoch+1}/{args.epochs}], Step [{step+1}/{len(train_loader)}], \
@@ -135,7 +135,7 @@ def train(args, model):
         })
         # validation 주기에 따른 loss 출력 및 best model 저장
         if (epoch + 1) % args.val_every == 0:
-            avrg_loss, val_mIoU = validation(epoch + 1, model, val_loader, criterion, args.device)
+            avrg_loss, val_mIoU, val_csv = validation(epoch + 1, model, val_loader, criterion, args.device)
             if avrg_loss < best_loss:
                 print(f"Best performance at epoch (loss): {epoch + 1}")
                 print(f"Save model in {os.path.join(args.save_dir, args.experiment_name)}")
@@ -149,6 +149,10 @@ def train(args, model):
                 print(f"Save model in {os.path.join(args.save_dir, args.experiment_name)}")
                 best_mIoU = val_mIoU
                 save_model(model, args.save_dir, file_name=os.path.join(args.experiment_name, f'best_mIoU.pt'))
+                # submission.csv로 저장
+                if not os.path.isdir(os.path.join(args.save_dir, args.experiment_name)):
+                    os.mkdir(os.path.join(args.save_dir, args.experiment_name))
+                val_csv.to_csv(os.path.join(args.save_dir, args.experiment_name, 'val_best.csv'), index=False)
                 wandb.log({
                     "best mIoU epoch" : epoch + 1
                 })
@@ -163,13 +167,11 @@ def validation(epoch, model, data_loader, criterion, device):
         n_class = 11
         total_loss = 0
         cnt = 0
-        
         hist = np.zeros((n_class, n_class))
-        for step, (images, masks, _) in enumerate(data_loader):
-            
+        submission = pd.read_csv('./submission/sample_submission.csv', index_col=None)
+        for step, (images, masks, image_infos) in enumerate(data_loader):
             images = torch.stack(images)       
-            masks = torch.stack(masks).long()  
-
+            masks = torch.stack(masks).long()
             images, masks = images.to(device), masks.to(device)            
             
             # device 할당
@@ -182,12 +184,14 @@ def validation(epoch, model, data_loader, criterion, device):
             
             outputs = torch.argmax(outputs, dim=1).detach().cpu().numpy()
             masks = masks.detach().cpu().numpy()
-            
+            for i in range(len(image_infos)):
+                submission = submission.append({"image_id" : image_infos[i]['file_name'], "PredictionString" : ' '.join(str(e) for e in masks[i].flatten())}, 
+                                        ignore_index=True)
             hist = add_hist(hist, masks, outputs, n_class=n_class)
         
         acc, acc_cls, mIoU, fwavacc, IoU = label_accuracy_score(hist)
         IoU_by_class = [{classes : round(IoU,4)} for IoU, classes in zip(IoU , category_names)]
-        
+
         avrg_loss = total_loss / cnt
         print(f'Validation #{epoch}  Average Loss: {round(avrg_loss.item(), 4)}, Accuracy : {round(acc, 4)}, mIoU: {round(mIoU, 4)}')
         print(f'IoU by class : {IoU_by_class}')
@@ -197,8 +201,7 @@ def validation(epoch, model, data_loader, criterion, device):
                 "Validation loss" : avrg_loss.item(),
                 "Validation mIoU" : mIoU
             })
-        
-    return avrg_loss, mIoU
+    return avrg_loss, mIoU, submission
 
 
 if __name__ == "__main__":
