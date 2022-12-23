@@ -153,7 +153,7 @@ def train(args, model):
 
         # validation 주기에 따른 loss 출력 및 best model 저장
         if (epoch + 1) % args.val_every == 0:
-            avrg_loss, val_mIoU = validation(epoch + 1, model, val_loader, criterion, args.device)
+            avrg_loss, val_mIoU, val_csv = validation(epoch + 1, model, val_loader, criterion, args.device)
             if val_mIoU > best_mIoU:
                 print(f"Best performance at epoch (mIoU): {epoch + 1}")
                 print(f"Save model in {os.path.join(args.save_dir, args.experiment_name)}")
