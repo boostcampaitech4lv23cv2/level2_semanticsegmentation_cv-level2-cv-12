@@ -100,6 +100,9 @@ def collate_fn(batch):
 def do_transform(mode):
     if mode == 'train':
         transform = A.Compose([
+            A.RandomResizedCrop(512, 512, (0.75, 1.0), p=0.5),
+            A.GridDropout(random_offset=True, holes_number_x=4, holes_number_y=4, p=0.5),
+            A.HorizontalFlip(p=0.5),
             ToTensorV2()
         ])
     elif mode == 'val':

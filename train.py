@@ -4,10 +4,12 @@ warnings.filterwarnings('ignore')
 
 import torch
 import torch.nn as nn
-from torchvision import models
+from torch.optim import *
 from torch import cuda
-from utils import label_accuracy_score, add_hist, set_seed
+from utils.utils import label_accuracy_score, add_hist, set_seed
 from dataloader import CustomDataLoader, do_transform, collate_fn
+from modules.model import create_model
+from modules.losses import create_criterion
 
 import wandb
 from utils.set_wandb import wandb_init
@@ -25,7 +27,9 @@ def parse_args():
 
     parser.add_argument('--save_dir', type=str, default='./saved')
     parser.add_argument('--val_every', type=int, default=1)
-    parser.add_argument('--data_dir', type=str, default='/opt/ml/input/data')
+    parser.add_argument('--data_dir', type=str, default='../data')
+    parser.add_argument('--use_model', type=str, default='efficient_unet')
+    parser.add_argument('--use_losses', tpye=str, default='cross_entropy')
 
     parser.add_argument('--device', default='cuda' if cuda.is_available() else 'cpu')
     parser.add_argument('--num_workers', type=int, default=4)
@@ -33,6 +37,7 @@ def parse_args():
     parser.add_argument('--batch_size', type=int, default=8)
     parser.add_argument('--epochs', type=int, default=20)
     parser.add_argument('--learning_rate', '-lr', type=float, default=1e-4)
+    parser.add_argument('--use_amp', action='store_true')
 
     parser.add_argument('--experiment_name', '-en', type=str, default='segment')
     parser.add_argument('--seed', type=int, default=21)
@@ -57,10 +62,14 @@ def train(args, model):
     best_mIoU = 0
 
     # --Loss function 정의
-    criterion = nn.CrossEntropyLoss()
+    criterion = create_criterion(args.use_losses)
 
     # --Optimizer 정의
-    optimizer = torch.optim.Adam(params = model.parameters(), lr = args.learning_rate, weight_decay=1e-6)
+    optimizer = Adam(params = model.parameters(), lr = args.learning_rate, weight_decay=1e-6)
+    schedular = lr_scheduler.CosineAnnealingLR(optimizer, T_max=3, eta_min=1e-6)
+    
+    if args.use_amp:
+        scaler = torch.cuda.amp.GradScaler(enabled=True)
 
     # --Dataset 및 DataLoader 설정
     train_dataset = CustomDataLoader(data_dir=os.path.join(args.data_dir, 'train.json'),
@@ -101,14 +110,25 @@ def train(args, model):
                 # device 할당
                 model = model.to(args.device)
                 
-                # inference
-                outputs = model(images)['out']
-                
-                # loss 계산 (cross entropy loss)
-                loss = criterion(outputs, masks)
-                optimizer.zero_grad()
-                loss.backward()
-                optimizer.step()
+                if args.use_amp:
+                    # use FP16
+                    with torch.cuda.amp.autocast(enabled=True):
+                        # inference
+                        outputs = model(images)
+                        
+                        # loss 계산 (cross entropy loss)
+                        loss = criterion(outputs, masks)
+                    optimizer.zero_grad()
+                    scaler.scale(loss).backward()
+                    scaler.step(optimizer)
+                    scaler.update()
+                else:
+                    outputs = model(images)
+                    loss = criterion(outputs, masks)
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+                    
                 
                 outputs = torch.argmax(outputs, dim=1).detach().cpu().numpy()
                 masks = masks.detach().cpu().numpy()
@@ -122,28 +142,18 @@ def train(args, model):
                     'mIoU': round(mIoU, 4)
                 }
                 pbar.set_postfix(tmp_dict)
-                # step 주기에 따른 loss 출력
-                # if (step + 1) % 25 == 0:
-                #     print(f'Epoch [{epoch+1}/{args.epochs}], Step [{step+1}/{len(train_loader)}], \
-                #             Loss: {round(loss.item(),4)}, mIoU: {round(mIoU,4)}')
-             
         lr = optimizer.param_groups[0]['lr']
         wandb.log({
+            "epoch" : epoch,
             "learning_rate" : lr,
             "Train loss" : loss.item(),
             "Train mIoU" : mIoU
         })
+        schedular.step()
+
         # validation 주기에 따른 loss 출력 및 best model 저장
         if (epoch + 1) % args.val_every == 0:
             avrg_loss, val_mIoU, val_csv = validation(epoch + 1, model, val_loader, criterion, args.device)
-            if avrg_loss < best_loss:
-                print(f"Best performance at epoch (loss): {epoch + 1}")
-                print(f"Save model in {os.path.join(args.save_dir, args.experiment_name)}")
-                best_loss = avrg_loss
-                save_model(model, args.save_dir, file_name=os.path.join(args.experiment_name, f'best_loss.pt'))
-                wandb.log({
-                    "best loss epoch" : epoch + 1
-                })
             if val_mIoU > best_mIoU:
                 print(f"Best performance at epoch (mIoU): {epoch + 1}")
                 print(f"Save model in {os.path.join(args.save_dir, args.experiment_name)}")
@@ -154,6 +164,7 @@ def train(args, model):
                     os.mkdir(os.path.join(args.save_dir, args.experiment_name))
                 val_csv.to_csv(os.path.join(args.save_dir, args.experiment_name, 'val_best.csv'), index=False)
                 wandb.log({
+                    "epoch" : epoch,
                     "best mIoU epoch" : epoch + 1
                 })
             
@@ -161,7 +172,7 @@ def train(args, model):
 def validation(epoch, model, data_loader, criterion, device):
     print(f'\n Start validation #{epoch}')
     model.eval()
-    category_names = ['Backgroud', 'General trash', 'Paper', 'Paper pack', 'Metal', 'Glass', 'Plastic', 'Styrofoam', 'Plastic bag', 'Battery', 'Clothing']
+    category_names = ['Background', 'General trash', 'Paper', 'Paper pack', 'Metal', 'Glass', 'Plastic', 'Styrofoam', 'Plastic bag', 'Battery', 'Clothing']
 
     with torch.no_grad():
         n_class = 11
@@ -177,7 +188,7 @@ def validation(epoch, model, data_loader, criterion, device):
             # device 할당
             model = model.to(device)
             
-            outputs = model(images)['out']
+            outputs = model(images)
             loss = criterion(outputs, masks)
             total_loss += loss
             cnt += 1
@@ -208,9 +219,7 @@ if __name__ == "__main__":
     args = parse_args()
     set_seed(args.seed)
 
-    model = models.segmentation.fcn_resnet50(pretrained=True)
-    # output class를 data set에 맞도록 수정
-    model.classifier[4] = nn.Conv2d(512, 11, kernel_size=1)
+    model = create_model(args.use_model)
 
     wandb_init(args)
 

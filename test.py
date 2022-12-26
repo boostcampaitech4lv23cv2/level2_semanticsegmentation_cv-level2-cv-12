@@ -4,6 +4,7 @@ import torch.nn as nn
 from torch import cuda
 from torchvision import models
 import albumentations as A
+from modules.model import create_model
 
 import numpy as np
 import pandas as pd
@@ -19,6 +20,7 @@ def parse_args():
     parser.add_argument('--save_dir', type=str, default='./submission')
     parser.add_argument('--model_path', type=str, default='./saved/segment/best_mIoU.pt')
     parser.add_argument('--data_dir', type=str, default='../data')
+    parser.add_argument('--use_model', type=str, default='efficient_unet')
 
     parser.add_argument('--device', default='cuda' if cuda.is_available() else 'cpu')
     parser.add_argument('--num_workers', type=int, default=4)
@@ -55,7 +57,7 @@ def test(args, model):
         for step, (imgs, image_infos) in enumerate(tqdm(test_loader)):
             
             # inference (512 x 512)
-            outs = model(torch.stack(imgs).to(args.device))['out']
+            outs = model(torch.stack(imgs).to(args.device))
             oms = torch.argmax(outs.squeeze(), dim=1).detach().cpu().numpy()
             
             # resize (256 x 256)
@@ -95,8 +97,7 @@ def test(args, model):
 if __name__ == "__main__":
     args = parse_args()
 
-    model = models.segmentation.fcn_resnet50(pretrained=True)
-    model.classifier[4] = nn.Conv2d(512, 11, kernel_size=1)
+    model = create_model(args.use_model)
 
     checkpoint = torch.load(args.model_path, map_location=args.device)
     state_dict = checkpoint.state_dict()
