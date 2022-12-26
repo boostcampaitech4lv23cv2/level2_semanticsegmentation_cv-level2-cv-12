@@ -10,9 +10,10 @@ from utils.utils import label_accuracy_score, add_hist, set_seed
 from dataloader import CustomDataLoader, do_transform, collate_fn
 from modules.model import create_model
 from modules.losses import create_criterion
+from modules.scheduler import create_scheduler
 
 import wandb
-from utils.set_wandb import wandb_init
+from utils.set_wandb import wandb_init, finish
 
 import math
 import numpy as np
@@ -29,7 +30,8 @@ def parse_args():
     parser.add_argument('--val_every', type=int, default=1)
     parser.add_argument('--data_dir', type=str, default='../data')
     parser.add_argument('--use_model', type=str, default='efficient_unet')
-    parser.add_argument('--use_losses', tpye=str, default='cross_entropy')
+    parser.add_argument('--use_losses', type=str, default='cross_entropy')
+    parser.add_argument('--use_scheduler', type=str, default='cosine_annealing')
 
     parser.add_argument('--device', default='cuda' if cuda.is_available() else 'cpu')
     parser.add_argument('--num_workers', type=int, default=4)
@@ -58,7 +60,6 @@ def save_model(model, saved_dir, file_name='segment'):
 def train(args, model):
     print(f'Start training..')
     n_class = 11
-    best_loss = 9999999
     best_mIoU = 0
 
     # --Loss function 정의
@@ -66,8 +67,8 @@ def train(args, model):
 
     # --Optimizer 정의
     optimizer = Adam(params = model.parameters(), lr = args.learning_rate, weight_decay=1e-6)
-    schedular = lr_scheduler.CosineAnnealingLR(optimizer, T_max=3, eta_min=1e-6)
-    
+    schedular = create_scheduler(optimizer, args.use_scheduler)
+        
     if args.use_amp:
         scaler = torch.cuda.amp.GradScaler(enabled=True)
 
@@ -142,6 +143,7 @@ def train(args, model):
                     'mIoU': round(mIoU, 4)
                 }
                 pbar.set_postfix(tmp_dict)
+                
         lr = optimizer.param_groups[0]['lr']
         wandb.log({
             "epoch" : epoch,
@@ -180,7 +182,7 @@ def validation(epoch, model, data_loader, criterion, device):
         cnt = 0
         hist = np.zeros((n_class, n_class))
         submission = pd.read_csv('./submission/sample_submission.csv', index_col=None)
-        for step, (images, masks, image_infos) in enumerate(data_loader):
+        for step, (images, masks, image_infos) in enumerate(tqdm(data_loader)):
             images = torch.stack(images)       
             masks = torch.stack(masks).long()
             images, masks = images.to(device), masks.to(device)            
@@ -224,3 +226,5 @@ if __name__ == "__main__":
     wandb_init(args)
 
     train(args, model)
+    
+    finish()
