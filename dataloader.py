@@ -37,10 +37,12 @@ class CustomDataLoader(Dataset):
         self.transform = transform
         self.coco = COCO(data_dir)
         self.data_path = data_path
+        self.img_ids = self.coco.getImgIds()
 
     def __getitem__(self, index: int):
         # dataset이 index되어 list처럼 동작
-        image_id = self.coco.getImgIds(imgIds=index)
+        #image_id = self.coco.getImgIds(imgIds=index)
+        image_id = self.coco.getImgIds(imgIds=self.img_ids[index])
         image_infos = self.coco.loadImgs(image_id)[0]
         
         # cv2 를 활용하여 image 불러오기
@@ -97,14 +99,40 @@ def collate_fn(batch):
     return tuple(zip(*batch))
 
 
-def do_transform(mode):
+def do_transform(mode, augtype='None', p=0.35):
     if mode == 'train':
-        transform = A.Compose([
-            A.RandomResizedCrop(512, 512, (0.75, 1.0), p=0.5),
-            A.GridDropout(random_offset=True, holes_number_x=4, holes_number_y=4, p=0.5),
-            A.HorizontalFlip(p=0.5),
+        if augtype=='FlipBlur':
+            transform = A.Compose([
+            A.GaussianBlur(p=p),
+            A.VerticalFlip(p=p),
+            A.HorizontalFlip(p=p),
             ToTensorV2()
         ])
+        elif augtype=='FlipBlur_Dropouts':
+            transform = A.Compose([
+            A.GaussianBlur(p=p),
+            A.VerticalFlip(p=p),
+            A.HorizontalFlip(p=p),
+            A.CoarseDropout(p=p, max_holes=16, min_holes=4, min_height=8, max_height=24, min_width=8, max_width=24, mask_fill_value=0),
+            A.GridDropout(p=p, random_offset=True, holes_number_x=7, holes_number_y=7, mask_fill_value=0),
+            ToTensorV2()
+        ])
+        elif augtype=='ALL':
+            transform = A.Compose([
+            A.GaussianBlur(p=p),
+            A.VerticalFlip(p=p),
+            A.HorizontalFlip(p=p),
+            A.HueSaturationValue(p=p, hue_shift_limit=1, sat_shift_limit=1, val_shift_limit=0),
+            A.CoarseDropout(p=p, max_holes=16, min_holes=4, min_height=8, max_height=24, min_width=8, max_width=24, mask_fill_value=0),
+            A.GridDropout(p=p, random_offset=True, holes_number_x=7, holes_number_y=7, mask_fill_value=0),
+            A.ShiftScaleRotate(p=p, shift_limit=0.2, scale_limit=0.2, rotate_limit=45),
+            ToTensorV2()
+        ])
+        else:
+            transform = A.Compose([
+            ToTensorV2()
+            ])
+
     elif mode == 'val':
         transform = A.Compose([
             ToTensorV2()
