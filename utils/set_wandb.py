@@ -3,7 +3,7 @@ import json
 import os
 
 def wandb_init(args):
-    with open('conf.json') as f:
+    with open('./utils/conf.json') as f:
         config = json.load(f)
 
     wandb.init(project=config['wandb_project'], 
@@ -12,3 +12,6 @@ def wandb_init(args):
                
     wandb.config.update(args)
     os.makedirs(os.path.join(args.save_dir, args.experiment_name), exist_ok=True)
+    
+def finish():
+    wandb.finish()
