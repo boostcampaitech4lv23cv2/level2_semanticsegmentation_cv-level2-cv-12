@@ -8,8 +8,8 @@ python setup.py install
 ## How to use
 
 ```python
-python tools/train.py [config file path]
-ex) python tools/train.py configs/segformer_mit-b0.py
+python tools/train.py [config file path] --work_dir './work_dir'
+ex) python tools/train.py configs/segformer_mit-b0.py --work_dir './work_dir --gpus 0
 ```
 
 ## Working
