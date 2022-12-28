@@ -73,7 +73,7 @@ def init_data(_val_data, image_ids, image_filenames, image_infos, pred_df):
         img = cv.imread(img_path)
         img = cv.cvtColor(img ,cv.COLOR_BGR2RGB)
         gt_mask = draw_gt_mask(h, w, cats, anns, category_names, _val_data)
-        transform = A.Compose([A.Resize(256, 256)])
+        transform = A.Compose([A.Resize(512, 512)])
         transformed = transform(image=img, mask=gt_mask)
         img = transformed['image']
         data[filename]['image'] = img
@@ -81,7 +81,7 @@ def init_data(_val_data, image_ids, image_filenames, image_infos, pred_df):
         seg_img = label_to_color_image(gt_mask)
         data[filename]['gt_mask']= seg_img
         pred = np.fromstring(pred_df['PredictionString'][i], dtype=int, sep=' ')
-        pred = pred.reshape(256 ,256)
+        pred = pred.reshape(512 ,512)
         data[filename]['mIoU'] = cal_IoU(gt_mask, pred)
         pred = label_to_color_image(pred)
         data[filename]['pred'] = pred
