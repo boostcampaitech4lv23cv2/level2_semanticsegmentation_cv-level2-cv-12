@@ -34,4 +34,4 @@ lr_config = dict(
     min_lr=0.0,
     by_epoch=False)
 
-data = dict(samples_per_gpu=1, workers_per_gpu=1)
+data = dict(samples_per_gpu=2, workers_per_gpu=4)
