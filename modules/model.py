@@ -4,6 +4,7 @@ from .models.Deconvnet_jj import DeconvNet_JJ
 from .models.FCN_16s import FCN16s
 from .models.Efficientb0_unet_pp import Efficientb0_UNet_PP
 from .models.Efficientb4_unet_pp import Efficientb4_UNet_PP
+from .models.MVTb4_unet import MVTb4_UNet
 
 _model_entrypoints = {
     "efficient_unet": Efficient_UNet,
@@ -12,6 +13,7 @@ _model_entrypoints = {
     "fcn_16s": FCN16s,
     "efficientb0_unet_pp": Efficientb0_UNet_PP,
     "efficientb4_unet_pp": Efficientb4_UNet_PP,
+    "mvtb4_unet": MVTb4_UNet,
 }
 
 def model_entrypoint(model_name):

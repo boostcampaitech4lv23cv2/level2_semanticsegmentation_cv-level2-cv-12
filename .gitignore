@@ -18,7 +18,7 @@ checkpoint.*
 *.json
 *.yaml
 wandb/*
-*.txt
+
 
 # C extensions
 *.so
@@ -185,5 +185,6 @@ saved/
 submission/
 wandb/
 *.out
+mmsegmentation/work_dir
 
 # End of https://www.toptal.com/developers/gitignore/api/python
