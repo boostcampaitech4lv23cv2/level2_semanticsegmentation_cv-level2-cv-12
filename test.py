@@ -79,7 +79,7 @@ def test(args, model):
     
     print("Start Inference")
     # sample_submisson.csv 열기
-    submission = pd.read_csv('./submission/sample_submission.csv', index_col=None)
+    submission = pd.read_csv('/opt/ml/input/code/submission/sample_submission.csv', index_col=None)
 
     # PredictionString 대입
     for file_name, string in zip(file_names, preds_array):

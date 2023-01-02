@@ -29,11 +29,17 @@ def parse_args():
     parser = ArgumentParser()
 
     parser.add_argument('--save_dir', type=str, default='./saved')
-    parser.add_argument('--val_every', type=int, default=1)
     parser.add_argument('--data_dir', type=str, default='../data')
+    parser.add_argument('--train_json_path', type=str, default='../data/train.json')
+    parser.add_argument('--val_json_path', type=str, default='../data/val.json')
+
+    parser.add_argument('--val_every', type=int, default=1)
     parser.add_argument('--use_model', type=str, default='efficient_unet')
     parser.add_argument('--use_losses', type=str, default='cross_entropy')
     parser.add_argument('--use_scheduler', type=str, default='cosine_annealing')
+
+    parser.add_argument('--train_augtype', type=str, default='None')
+    parser.add_argument('--save_submission', action='store_true')
 
     parser.add_argument('--device', default='cuda' if cuda.is_available() else 'cpu')
     parser.add_argument('--num_workers', type=int, default=4)
@@ -75,11 +81,11 @@ def train(args, model):
         scaler = torch.cuda.amp.GradScaler(enabled=True)
 
     # --Dataset 및 DataLoader 설정
-    train_dataset = CustomDataLoader(data_dir=os.path.join(args.data_dir, 'train.json'),
+    train_dataset = CustomDataLoader(data_dir=args.train_json_path,
                                      mode='train',
-                                     transform=do_transform(mode='train'),
+                                     transform=do_transform(mode='train', augtype=args.train_augtype),
                                      data_path=args.data_dir)
-    val_dataset = CustomDataLoader(data_dir=os.path.join(args.data_dir, 'val.json'),
+    val_dataset = CustomDataLoader(data_dir=args.val_json_path,
                                    mode='val',
                                    transform=do_transform(mode='val'),
                                    data_path=args.data_dir)
@@ -164,9 +170,10 @@ def train(args, model):
                 best_mIoU = val_mIoU
                 save_model(model, args.save_dir, file_name=os.path.join(args.experiment_name, f'best_mIoU.pt'))
                 # submission.csv로 저장
-                if not os.path.isdir(os.path.join(args.save_dir, args.experiment_name)):
-                    os.mkdir(os.path.join(args.save_dir, args.experiment_name))
-                val_csv.to_csv(os.path.join(args.save_dir, args.experiment_name, 'val_best.csv'), index=False)
+                if args.save_submission:
+                    if not os.path.isdir(os.path.join(args.save_dir, args.experiment_name)):
+                        os.mkdir(os.path.join(args.save_dir, args.experiment_name))
+                    val_csv.to_csv(os.path.join(args.save_dir, args.experiment_name, 'val_best.csv'), index=False)
                 wandb.log({
                     "epoch" : epoch,
                     "best mIoU epoch" : epoch + 1
@@ -183,8 +190,8 @@ def validation(epoch, model, data_loader, criterion, device):
         total_loss = 0
         cnt = 0
         hist = np.zeros((n_class, n_class))
-        submission = pd.read_csv('./submission/sample_submission.csv', index_col=None)
-        for step, (images, masks, image_infos) in enumerate(tqdm(data_loader)):
+        submission = pd.read_csv('/opt/ml/input/code/submission/sample_submission.csv', index_col=None)
+        for step, (images, masks, image_infos) in enumerate(data_loader):
             images = torch.stack(images)       
             masks = torch.stack(masks).long()
             images, masks = images.to(device), masks.to(device)            
@@ -198,9 +205,12 @@ def validation(epoch, model, data_loader, criterion, device):
             cnt += 1
             outputs = torch.argmax(outputs, dim=1).detach().cpu().numpy()
             masks = masks.detach().cpu().numpy()
-            for i in range(len(image_infos)):
-                submission = submission.append({"image_id" : image_infos[i]['file_name'], "PredictionString" : ' '.join(str(e) for e in outputs[i].flatten())}, 
-                                        ignore_index=True)
+
+            if args.save_submission:
+                for i in range(len(image_infos)):
+                    submission = submission.append({"image_id" : image_infos[i]['file_name'], "PredictionString" : ' '.join(str(e) for e in outputs[i].flatten())}, 
+                                            ignore_index=True)
+
             hist = add_hist(hist, masks, outputs, n_class=n_class)
         
         acc, acc_cls, mIoU, fwavacc, IoU = label_accuracy_score(hist)

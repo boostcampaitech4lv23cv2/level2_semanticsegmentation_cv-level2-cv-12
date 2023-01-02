@@ -185,6 +185,7 @@ saved/
 submission/
 wandb/
 *.out
+*.sh
 mmsegmentation/work_dir
 
 # End of https://www.toptal.com/developers/gitignore/api/python
