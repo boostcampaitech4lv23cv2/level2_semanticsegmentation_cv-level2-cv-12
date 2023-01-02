@@ -69,6 +69,8 @@ def train(args, model):
     print(f'Start training..')
     n_class = 11
     best_mIoU = 0
+    topK_list = []
+    K = 5
 
     # --Loss function 정의
     criterion = create_criterion(args.use_losses)
@@ -164,6 +166,7 @@ def train(args, model):
         # validation 주기에 따른 loss 출력 및 best model 저장
         if (epoch + 1) % args.val_every == 0:
             avrg_loss, val_mIoU, val_csv = validation(epoch + 1, model, val_loader, criterion, args.device)
+            """
             if val_mIoU > best_mIoU:
                 print(f"Best performance at epoch (mIoU): {epoch + 1}")
                 print(f"Save model in {os.path.join(args.save_dir, args.experiment_name)}")
@@ -178,7 +181,27 @@ def train(args, model):
                     "epoch" : epoch,
                     "best mIoU epoch" : epoch + 1
                 })
-            
+            """
+            if val_mIoU > best_mIoU:
+                print(f"Good performance at epoch (mIoU): {epoch + 1}")
+                print(f"Save model in {os.path.join(args.save_dir, args.experiment_name)}")
+                # save
+                file_name = f'ep{epoch + 1}_{val_mIoU:.4f}.pt'
+                save_model(model, args.save_dir, file_name=os.path.join(args.experiment_name, file_name))
+                topK_list.append((val_mIoU, file_name))
+                topK_list.sort()
+                best_mIoU = topK_list[0][0]
+                # remove
+                if len(topK_list) > K:
+                    os.remove(os.path.join(args.save_dir, args.experiment_name, topK_list[0][1]))
+                    assert topK_list[0][1] != file_name, file_name
+                    del topK_list[0]
+                    assert len(topK_list) == K, topK_list
+                print(topK_list)
+                wandb.log({
+                    "epoch" : epoch + 1,
+                    "best mIoU epoch" : epoch + 1})
+
 
 def validation(epoch, model, data_loader, criterion, device):
     print(f'\n Start validation #{epoch}')
