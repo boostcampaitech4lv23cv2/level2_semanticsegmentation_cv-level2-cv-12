@@ -17,3 +17,10 @@ class Efficient_UNet(nn.Module):
         
     def forward(self, x):
         return self.model(x)
+    
+if __name__ == "__main__":
+    model = Efficient_UNet().to('cuda')
+    
+    x = torch.rand((1, 3, 512, 512)).to('cuda')
+    
+    out = model(x)
