@@ -23,6 +23,8 @@ from argparse import ArgumentParser
 
 import pandas as pd
 
+import albumentations as A
+
 def parse_args():
     parser = ArgumentParser()
 
@@ -201,13 +203,14 @@ def validation(epoch, model, data_loader, criterion, device):
             loss = criterion(outputs, masks)
             total_loss += loss
             cnt += 1
-            
             outputs = torch.argmax(outputs, dim=1).detach().cpu().numpy()
             masks = masks.detach().cpu().numpy()
+
             if args.save_submission:
                 for i in range(len(image_infos)):
-                    submission = submission.append({"image_id" : image_infos[i]['file_name'], "PredictionString" : ' '.join(str(e) for e in masks[i].flatten())}, 
+                    submission = submission.append({"image_id" : image_infos[i]['file_name'], "PredictionString" : ' '.join(str(e) for e in outputs[i].flatten())}, 
                                             ignore_index=True)
+
             hist = add_hist(hist, masks, outputs, n_class=n_class)
         
         acc, acc_cls, mIoU, fwavacc, IoU = label_accuracy_score(hist)
