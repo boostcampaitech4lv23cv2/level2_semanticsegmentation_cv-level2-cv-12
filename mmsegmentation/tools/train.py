@@ -10,7 +10,7 @@ import mmcv
 import torch
 import torch.distributed as dist
 from mmcv.cnn.utils import revert_sync_batchnorm
-from mmcv.runner import get_dist_info, init_dist
+from mmcv.runner import get_dist_info, init_dist, wrap_fp16_model
 from mmcv.utils import Config, DictAction, get_git_hash
 
 from mmseg import __version__
@@ -199,6 +199,10 @@ def main():
         cfg.model,
         train_cfg=cfg.get('train_cfg'),
         test_cfg=cfg.get('test_cfg'))
+
+    # Use fp16
+    wrap_fp16_model(model)
+
     model.init_weights()
 
     # SyncBN is not support for DP
