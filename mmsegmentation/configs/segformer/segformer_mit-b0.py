@@ -1,7 +1,9 @@
 _base_ = [
     '../_base_/models/segformer_mit-b0.py',
     '../_base_/datasets/custom_dataset.py',
-    '../_base_/default_runtime.py', '../_base_/schedules/schedule_160k.py'
+    '../_base_/default_runtime.py', 
+    '../_base_/schedules/schedule_160k.py',
+    '../logger.py'
 ]
 
 checkpoint = 'https://download.openmmlab.com/mmsegmentation/v0.5/pretrain/segformer/mit_b0_20220624-7e0fe6dd.pth'  # noqa
@@ -34,4 +36,4 @@ lr_config = dict(
     min_lr=0.0,
     by_epoch=False)
 
-data = dict(samples_per_gpu=2, workers_per_gpu=4)
+data = dict(samples_per_gpu=4, workers_per_gpu=4)
