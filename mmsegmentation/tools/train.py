@@ -201,7 +201,7 @@ def main():
         test_cfg=cfg.get('test_cfg'))
 
     # Use fp16
-    wrap_fp16_model(model)
+    # wrap_fp16_model(model)
 
     model.init_weights()
 
