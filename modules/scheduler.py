@@ -4,7 +4,8 @@ import json
 _scheduler_entrypoints = {
     "step": lr_scheduler.StepLR,
     "multi_step": lr_scheduler.MultiStepLR,
-    "cosine_annealing": lr_scheduler.CosineAnnealingLR
+    "cosine_annealing": lr_scheduler.CosineAnnealingLR,
+    "cosine_annealing_restart": lr_scheduler.CosineAnnealingWarmRestarts
 }
 
 def scheduler_entrypoint(scheduler_name):
