@@ -1,11 +1,12 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from .loss.comboloss import ComboLoss
+from .loss.comboloss import ComboLoss, DiceLoss
 
 _criterion_entrypoints = {
     'cross_entropy': nn.CrossEntropyLoss,
-    'combo' : ComboLoss,
+    'combo': ComboLoss,
+    'dice': DiceLoss,
 }
 
 def criterion_entrypoint(criterion_name):
