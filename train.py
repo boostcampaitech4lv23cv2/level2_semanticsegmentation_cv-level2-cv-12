@@ -32,6 +32,7 @@ def parse_args():
     parser.add_argument('--data_dir', type=str, default='../data')
     parser.add_argument('--train_json_path', type=str, default='../data/train.json')
     parser.add_argument('--val_json_path', type=str, default='../data/val.json')
+    parser.add_argument('--save_type', type=str, default='best_mIoU')  # 'best_mIoU', 'topK', 'best_IoUs'
 
     parser.add_argument('--val_every', type=int, default=1)
     parser.add_argument('--use_model', type=str, default='mit_unet_3plus')
@@ -69,6 +70,10 @@ def train(args, model):
     print(f'Start training..')
     n_class = 11
     best_mIoU = 0
+    topK_list = []
+    K = 15
+    topIoU_dict = {'General trash':(0, 'None'), 'Paper':(0, 'None'), 'Paper pack':(0, 'None'), 'Metal':(0, 'None'), 'Glass':(0, 'None'), 
+                    'Plastic':(0, 'None'), 'Styrofoam':(0, 'None'), 'Plastic bag':(0, 'None'), 'Battery':(0, 'None'), 'Clothing':(0, 'None')}
 
     # --Loss function 정의
     criterion = create_criterion(args.use_losses)
@@ -163,22 +168,69 @@ def train(args, model):
 
         # validation 주기에 따른 loss 출력 및 best model 저장
         if (epoch + 1) % args.val_every == 0:
-            avrg_loss, val_mIoU, val_csv = validation(epoch + 1, model, val_loader, criterion, args.device)
-            if val_mIoU > best_mIoU:
-                print(f"Best performance at epoch (mIoU): {epoch + 1}")
-                print(f"Save model in {os.path.join(args.save_dir, args.experiment_name)}")
-                best_mIoU = val_mIoU
-                save_model(model, args.save_dir, file_name=os.path.join(args.experiment_name, f'best_mIoU_{epoch+1}.pt'))
-                # submission.csv로 저장
-                if args.save_submission:
-                    if not os.path.isdir(os.path.join(args.save_dir, args.experiment_name)):
-                        os.mkdir(os.path.join(args.save_dir, args.experiment_name))
-                    val_csv.to_csv(os.path.join(args.save_dir, args.experiment_name, f'val_best_{epoch+1}.csv'), index=False)
-                wandb.log({
-                    "epoch" : epoch,
-                    "best mIoU epoch" : epoch + 1
-                })
-            
+            avrg_loss, val_mIoU, val_csv, IoU_by_class = validation(epoch + 1, model, val_loader, criterion, args.device)
+            if args.save_type == 'best_mIoU':
+                if val_mIoU > best_mIoU:
+                    print(f"Best performance at epoch (mIoU): {epoch + 1}")
+                    print(f"Save model in {os.path.join(args.save_dir, args.experiment_name)}")
+                    best_mIoU = val_mIoU
+                    save_model(model, args.save_dir, file_name=os.path.join(args.experiment_name, f'best_mIoU.pt'))
+                    # submission.csv로 저장
+                    if args.save_submission:
+                        if not os.path.isdir(os.path.join(args.save_dir, args.experiment_name)):
+                            os.mkdir(os.path.join(args.save_dir, args.experiment_name))
+                        val_csv.to_csv(os.path.join(args.save_dir, args.experiment_name, 'val_best.csv'), index=False)
+                    wandb.log({
+                        "epoch" : epoch + 1,
+                        "best mIoU epoch" : epoch + 1
+                    })
+
+            if args.save_type == 'topK':
+                if val_mIoU > best_mIoU:
+                    print(f"Good performance at epoch (mIoU): {epoch + 1}")
+                    print(f"Save model in {os.path.join(args.save_dir, args.experiment_name)}")
+                    # save
+                    file_name = f'ep{epoch + 1}_{val_mIoU:.4f}.pt'
+                    save_model(model, args.save_dir, file_name=os.path.join(args.experiment_name, file_name))
+                    # record
+                    topK_list.append((val_mIoU, file_name))
+                    topK_list.sort()
+                    best_mIoU = topK_list[0][0]
+                    # remove
+                    if len(topK_list) > K:
+                        os.remove(os.path.join(args.save_dir, args.experiment_name, topK_list[0][1]))
+                        print('WARNING; topK_list[0][1] != file_name', file_name)
+                        #assert topK_list[0][1] != file_name, file_name
+                        del topK_list[0]
+                        print('WARNING; len(topK_list) == K', topK_list)
+                        #assert len(topK_list) == K, topK_list
+
+            if args.save_type == 'best_IoUs' and epoch > -1:
+                old_file_names = []
+                for Cls_IoU in IoU_by_class:
+                    key = list(Cls_IoU.keys())[0]
+                    if key == 'Background': continue
+                    value = Cls_IoU[key]
+                    if value > topIoU_dict[key][0]:
+                        file_name = f'ep{epoch+1}.pt'
+                        # save
+                        if not os.path.isfile(os.path.join(args.save_dir, args.experiment_name, file_name)):
+                            save_model(model, args.save_dir, file_name=os.path.join(args.experiment_name, file_name))
+                        # record
+                        old_file_names.append(topIoU_dict[key][1])
+                        topIoU_dict[key] = (value, file_name)
+                # remove
+                new_file_names = np.array(list(topIoU_dict.values()))[:, 1]
+                for old_file_name in old_file_names:
+                    if old_file_name not in new_file_names:
+                        if os.path.isfile(os.path.join(args.save_dir, args.experiment_name, old_file_name)):
+                            os.remove(os.path.join(args.save_dir, args.experiment_name, old_file_name))
+                # save log
+                with open(os.path.join(args.save_dir, args.experiment_name, 'IoU_info.txt'), "w") as f:
+                    for k, v in topIoU_dict.items():
+                        dat = f"{k:16}{v[1]}\t{v[0]:.4f}\n"
+                        f.write(dat)
+
 
 def validation(epoch, model, data_loader, criterion, device):
     print(f'\n Start validation #{epoch}')
@@ -225,7 +277,7 @@ def validation(epoch, model, data_loader, criterion, device):
                 "Validation loss" : avrg_loss.item(),
                 "Validation mIoU" : mIoU
             })
-    return avrg_loss, mIoU, submission
+    return avrg_loss, mIoU, submission, IoU_by_class
 
 
 if __name__ == "__main__":
