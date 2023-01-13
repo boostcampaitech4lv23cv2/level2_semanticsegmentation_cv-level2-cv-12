@@ -60,7 +60,7 @@ def create_trash_label_colormap():
     Returns:
         A colormap for visualizing segmentation results.
     """
-    class_colormap = pd.read_csv("/opt/ml/level2_semanticsegmentation_cv-level2-cv-12/class_dict.csv")
+    class_colormap = pd.read_csv("/opt/ml/input/code/class_dict.csv")
     colormap = np.zeros((11, 3), dtype=np.uint8)
     for inex, (_, r, g, b) in enumerate(class_colormap.values):
         colormap[inex] = [r, g, b]

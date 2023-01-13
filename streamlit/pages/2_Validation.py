@@ -16,12 +16,12 @@ from matplotlib.patches import Patch
 import albumentations as A
 
 import sys
-sys.path.append('/opt/ml/level2_semanticsegmentation_cv-level2-cv-12')
+# sys.path.append('/opt/ml/level2_semanticsegmentation_cv-level2-cv-12')
 
-from dataloader import CustomDataLoader, do_transform, collate_fn
+os.chdir('/opt/ml/input/code/')
 from utils.utils import label_to_color_image, _fast_hist, label_accuracy_score
 
-class_colormap = pd.read_csv("../class_dict.csv")
+class_colormap = pd.read_csv("/opt/ml/input/code/class_dict.csv")
 
 # SETTING PAGE CONFIG TO WIDE MODE
 st.set_page_config(page_title="annotation", layout="wide")
@@ -31,7 +31,7 @@ parser = argparse.ArgumentParser(description='basic Argparse')
 parser.add_argument('--data_dir', type=str, default='/opt/ml/input/data/', help='데이터셋 폴더 경로 ex)/opt/ml/dataset/')
 parser.add_argument('--train_gt', type=str, default='train.json', help='train dataset json 파일의 이름 ex)train.json')
 parser.add_argument('--valid_gt', type=str, default='val.json', help='valid dataset json 파일의 이름 ex)valid.json')
-parser.add_argument('--valid_csv', type=str, default='/opt/ml/level2_semanticsegmentation_cv-level2-cv-12/submission/baseline/submission.csv', help='output csv 파일 경로 ex)/opt/ml/submission.csv')
+parser.add_argument('--valid_csv', type=str, default='/opt/ml/input/code/submission/mit_unet_3plus_uniform_soup/val_miou.csv', help='output csv 파일 경로 ex)/opt/ml/submission.csv')
 args = parser.parse_args()
 
 def get_classname(classID, cats):
