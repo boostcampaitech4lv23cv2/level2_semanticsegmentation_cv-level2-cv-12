@@ -37,7 +37,7 @@ def parse_args():
     parser.add_argument('--val_every', type=int, default=1)
     parser.add_argument('--use_model', type=str, default='mit_unet_3plus')
     parser.add_argument('--use_losses', type=str, default='combo')
-    parser.add_argument('--use_scheduler', type=str, default='cosine_annealing_restart')
+    parser.add_argument('--use_scheduler', type=str, default='cosine_annealing_warm_restarts')
 
     parser.add_argument('--train_augtype', type=str, default='FlipBlur_Dropouts')
     parser.add_argument('--save_submission', action='store_true')
