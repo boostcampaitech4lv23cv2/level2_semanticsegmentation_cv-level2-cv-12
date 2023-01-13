@@ -1,8 +1,6 @@
 import os
 import torch
-import torch.nn as nn
 from torch import cuda
-from torchvision import models
 import albumentations as A
 from modules.model import create_model
 
@@ -12,23 +10,24 @@ from tqdm import tqdm
 from argparse import ArgumentParser
 
 from dataloader import CustomDataLoader, do_transform, collate_fn
-
+import ttach as tta
+from albumentations.pytorch import ToTensorV2
 
 def parse_args():
     parser = ArgumentParser()
 
     parser.add_argument('--save_dir', type=str, default='./submission')
-    parser.add_argument('--model_path', type=str, default='./saved/segment/best_mIoU.pt')
+    parser.add_argument('--model_path', type=str, default='/opt/ml/input/code/soup/uniform_model_soup.pt')
     parser.add_argument('--data_dir', type=str, default='../data')
-    parser.add_argument('--use_model', type=str, default='efficient_unet')
+    parser.add_argument('--use_model', type=str, default='mit_unet_3plus')
 
     parser.add_argument('--device', default='cuda' if cuda.is_available() else 'cpu')
     parser.add_argument('--num_workers', type=int, default=4)
 
-    parser.add_argument('--batch_size', type=int, default=8)
+    parser.add_argument('--batch_size', type=int, default=3)
     parser.add_argument('--resize', type=int, default=256)
 
-    parser.add_argument('--experiment_name', '-en', type=str, default='segment')
+    parser.add_argument('--experiment_name', '-en', type=str, default='mit_unet_3plus_uniform_soup')
 
     args = parser.parse_args()
 
@@ -45,6 +44,7 @@ def test(args, model):
                                                 num_workers=args.num_workers,
                                                 collate_fn=collate_fn)
     size = args.resize
+    
     transform = A.Compose([A.Resize(size, size)])
     print('\nStart prediction.')
     
@@ -55,7 +55,12 @@ def test(args, model):
     
     with torch.no_grad():
         for step, (imgs, image_infos) in enumerate(tqdm(test_loader)):
-            
+            # if step < len(test_loader) - 2:
+            #     continue
+            # else:
+            #     for i in imgs:
+            #         print(i.shape)
+                
             # inference (512 x 512)
             outs = model(torch.stack(imgs).to(args.device))
             oms = torch.argmax(outs.squeeze(), dim=1).detach().cpu().numpy()
@@ -63,6 +68,8 @@ def test(args, model):
             # resize (256 x 256)
             temp_mask = []
             for img, mask in zip(np.stack(imgs), oms):
+                # img_height, img_width = img.shape[:2]
+                # print(img.shape[:2], img_height, img_width)
                 transformed = transform(image=img, mask=mask)
                 mask = transformed['mask']
                 temp_mask.append(mask)

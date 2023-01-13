@@ -7,6 +7,7 @@ from .models.Efficientb4_unet_pp import Efficientb4_UNet_PP
 from .models.Efficientb4_deeplabv3p import Efficientb4_Deeplab_v3p
 from .models.MVTb4_unet import MVTb4_UNet
 from .models.Efficient_unet3plus import Efficient_UNet_3Plus
+from .models.Mit_unet3plus import Mit_UNet_3Plus
 
 _model_entrypoints = {
     "efficient_unet": Efficient_UNet,
@@ -18,6 +19,7 @@ _model_entrypoints = {
     "efficientb4_deeplabv3p": Efficientb4_Deeplab_v3p,
     "mvtb4_unet": MVTb4_UNet,
     "efficient_unet_3plus": Efficient_UNet_3Plus,
+    "mit_unet_3plus": Mit_UNet_3Plus,
 }
 
 def model_entrypoint(model_name):

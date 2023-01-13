@@ -34,22 +34,22 @@ def parse_args():
     parser.add_argument('--val_json_path', type=str, default='../data/val.json')
 
     parser.add_argument('--val_every', type=int, default=1)
-    parser.add_argument('--use_model', type=str, default='efficient_unet')
-    parser.add_argument('--use_losses', type=str, default='cross_entropy')
-    parser.add_argument('--use_scheduler', type=str, default='cosine_annealing')
+    parser.add_argument('--use_model', type=str, default='mit_unet_3plus')
+    parser.add_argument('--use_losses', type=str, default='combo')
+    parser.add_argument('--use_scheduler', type=str, default='cosine_annealing_restart')
 
-    parser.add_argument('--train_augtype', type=str, default='None')
+    parser.add_argument('--train_augtype', type=str, default='FlipBlur_Dropouts')
     parser.add_argument('--save_submission', action='store_true')
 
     parser.add_argument('--device', default='cuda' if cuda.is_available() else 'cpu')
     parser.add_argument('--num_workers', type=int, default=4)
 
-    parser.add_argument('--batch_size', type=int, default=8)
-    parser.add_argument('--epochs', type=int, default=20)
+    parser.add_argument('--batch_size', type=int, default=2)
+    parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--learning_rate', '-lr', type=float, default=1e-4)
     parser.add_argument('--use_amp', action='store_true')
 
-    parser.add_argument('--experiment_name', '-en', type=str, default='segment')
+    parser.add_argument('--experiment_name', '-en', type=str, default='mit_unet_3plus_final_2')
     parser.add_argument('--seed', type=int, default=21)
 
     args = parser.parse_args()
@@ -74,7 +74,7 @@ def train(args, model):
     criterion = create_criterion(args.use_losses)
 
     # --Optimizer 정의
-    optimizer = Adam(params = model.parameters(), lr = args.learning_rate, weight_decay=1e-6)
+    optimizer = AdamW(params = model.parameters(), lr = args.learning_rate, weight_decay=1e-6)
     schedular = create_scheduler(optimizer, args.use_scheduler)
         
     if args.use_amp:
@@ -168,12 +168,12 @@ def train(args, model):
                 print(f"Best performance at epoch (mIoU): {epoch + 1}")
                 print(f"Save model in {os.path.join(args.save_dir, args.experiment_name)}")
                 best_mIoU = val_mIoU
-                save_model(model, args.save_dir, file_name=os.path.join(args.experiment_name, f'best_mIoU.pt'))
+                save_model(model, args.save_dir, file_name=os.path.join(args.experiment_name, f'best_mIoU_{epoch+1}.pt'))
                 # submission.csv로 저장
                 if args.save_submission:
                     if not os.path.isdir(os.path.join(args.save_dir, args.experiment_name)):
                         os.mkdir(os.path.join(args.save_dir, args.experiment_name))
-                    val_csv.to_csv(os.path.join(args.save_dir, args.experiment_name, 'val_best.csv'), index=False)
+                    val_csv.to_csv(os.path.join(args.save_dir, args.experiment_name, f'val_best_{epoch+1}.csv'), index=False)
                 wandb.log({
                     "epoch" : epoch,
                     "best mIoU epoch" : epoch + 1
@@ -230,6 +230,7 @@ def validation(epoch, model, data_loader, criterion, device):
 
 if __name__ == "__main__":
     args = parse_args()
+    args.save_submission = True
     set_seed(args.seed)
 
     model = create_model(args.use_model)

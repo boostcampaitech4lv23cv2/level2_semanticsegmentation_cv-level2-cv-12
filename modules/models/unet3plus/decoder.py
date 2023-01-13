@@ -112,9 +112,9 @@ class Unet3PlusDecoder(nn.Module):
         super().__init__()
 
         # computing blocks input and output channels
-        head_channels = encoder_channels[-1]
+        head_channels = encoder_channels[-2]
         # remove first skip with same spatial resolution
-        encoder_channels = encoder_channels[:-1]
+        encoder_channels = encoder_channels[:-2]
         encoder_channels = encoder_channels[::-1]
         
         out_channels = decoder_channels
@@ -141,11 +141,13 @@ class Unet3PlusDecoder(nn.Module):
         
         # decoder 4
         self.x_5_up = UpBlock(head_channels, out_channels, 2)
-        self.x_4 = ConvBlock(encoder_channels[0] + 3*skip_channels + out_channels, out_channels)
+        # self.x_4 = ConvBlock(encoder_channels[0] + 3*skip_channels + out_channels, out_channels)
+        self.x_4 = ConvBlock(encoder_channels[0] + 2*skip_channels + out_channels, out_channels)
         # decoder 3
         self.x_5_2up = UpBlock(head_channels, out_channels, 4)
         self.x_4_up = UpBlock(out_channels, out_channels, 2)
-        self.x_3 = ConvBlock(encoder_channels[1] + 2*skip_channels + out_channels*2, out_channels)
+        # self.x_3 = ConvBlock(encoder_channels[1] + 2*skip_channels + out_channels*2, out_channels)
+        self.x_3 = ConvBlock(encoder_channels[1] + skip_channels + out_channels*2, out_channels)
         # decoder 2
         self.x_5_3up = UpBlock(head_channels, out_channels, 8)
         self.x_4_2up = UpBlock(out_channels, out_channels, 4)
@@ -159,29 +161,31 @@ class Unet3PlusDecoder(nn.Module):
         self.x_1 = ConvBlock(encoder_channels[3] + out_channels*4, out_channels)
 
     def forward(self, *features):
-        head = features[-1]
-        skips = features[:-1]
+        head = features[-2]
+        skips = features[:-2]
         
         # center
         x = self.center(head)
         
         # down 4
         x_1_down = self.x_1_down_4(skips[0])
-        x_2_down = self.x_2_down_4(skips[1])
+        # x_2_down = self.x_2_down_4(skips[1])
         x_3_down = self.x_3_down_4(skips[2])
         
         # decoder 4
         x_5_up = self.x_5_up(x)
-        x_4 = self.x_4(torch.cat([x_1_down, x_2_down, x_3_down, skips[3], x_5_up], dim=1))
+        # x_4 = self.x_4(torch.cat([x_1_down, x_2_down, x_3_down, skips[3], x_5_up], dim=1))
+        x_4 = self.x_4(torch.cat([x_1_down, x_3_down, skips[3], x_5_up], dim=1))
         
         # down 3 
         x_1_down = self.x_1_down_3(skips[0])
-        x_2_down = self.x_2_down_3(skips[1])
+        # x_2_down = self.x_2_down_3(skips[1])
         
         # decoder 3
         x_5_2up = self.x_5_2up(x)
         x_4_up = self.x_4_up(x_4)
-        x_3 = self.x_3(torch.cat([x_1_down, x_2_down, skips[2], x_4_up, x_5_2up], dim=1))
+        # x_3 = self.x_3(torch.cat([x_1_down, x_2_down, skips[2], x_4_up, x_5_2up], dim=1))
+        x_3 = self.x_3(torch.cat([x_1_down, skips[2], x_4_up, x_5_2up], dim=1))
         
         # down 2
         x_1_down = self.x_1_down_2(skips[0])
